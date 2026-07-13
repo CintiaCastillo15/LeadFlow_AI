@@ -1,0 +1,217 @@
+{
+  "name": "LeadFlow Automation - Gestión de Leads B2B con IA",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerOn": "messageReceived",
+        "mailbox": "{{$env.GMAIL_MAILBOX}}",
+        "criteria": {
+          "matcherType": "and",
+          "matchers": [
+            {
+              "key": "subject",
+              "value": "lead",
+              "operation": "contains"
+            },
+            {
+              "key": "date",
+              "value": 1,
+              "operation": "newerthan"
+            }
+          ]
+        },
+        "markAsRead": true,
+        "maxEmails": 10
+      },
+      "name": "01a Gmail Trigger - Captura de Leads",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.N8N_WEBHOOK_URL}}",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "01b Webhook Trigger - Alternativo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 250]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parsear email y extraer datos\nconst email = items[0].json.message || items[0].json.payload;\nconst headers = email.payload.headers;\n\nconst getName = (key) => headers.find(h => h.name === key)?.value || '';\n\nreturn {\n  json: {\n    from_name: getName('From').split('<')[0].trim(),\n    from_email: getName('From').match(/<(.+?)>/)?.[1] || '',\n    subject: getName('Subject'),\n    thread_id: email.threadId,\n    message_id: email.id,\n    body: email.payload.parts?.[0]?.body?.data ? Buffer.from(email.payload.parts[0].body.data, 'base64').toString('utf-8') : '',\n    received_at: new Date(parseInt(email.internalDate)).toISOString()\n  }\n};"
+      },
+      "name": "02 Parse Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 150]
+    },
+    {
+      "parameters": {
+        "baseId": "{{$env.AIRTABLE_BASE_ID}}",
+        "operation": "search",
+        "table": "Leads",
+        "searchOptions": {
+          "filterByFormula": "{{email}} = '{{{$node[\"02 Parse Email\"].json.from_email}}}'"
+        }
+      },
+      "name": "03a Buscar Duplicado en Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [700, 150]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node[\"03a Buscar Duplicado en Airtable\"].json.records.length}}",
+              "operation": "equals",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "03b Filtro - Es nuevo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 150]
+    },
+    {
+      "parameters": {
+        "baseId": "{{$env.AIRTABLE_BASE_ID}}",
+        "table": "Leads",
+        "fields": {
+          "Nombre": "={{$node[\"02 Parse Email\"].json.from_name}}",
+          "Email": "={{$node[\"02 Parse Email\"].json.from_email}}",
+          "Asunto": "={{$node[\"02 Parse Email\"].json.subject}}",
+          "Mensaje Original": "={{$node[\"02 Parse Email\"].json.body}}",
+          "Thread ID": "={{$node[\"02 Parse Email\"].json.thread_id}}",
+          "Estado": "Pendiente IA",
+          "Fecha Ingreso": "={{new Date().toISOString()}}"
+        }
+      },
+      "name": "04 Crear Lead en Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [1100, 100]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validaciones previas a IA\nconst email = items[0].json.from_email;\nconst nombre = items[0].json.from_name;\nconst mensaje = items[0].json.body;\n\nconst validations = {\n  email_valido: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email),\n  nombre_presente: nombre && nombre.length > 2,\n  mensaje_presente: mensaje && mensaje.length > 20\n};\n\nreturn {\n  json: {\n    ...items[0].json,\n    validaciones: validations,\n    listo_para_ia: Object.values(validations).every(v => v)\n  }\n};"
+      },
+      "name": "05 Validar Datos Previos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1300, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$node[\"05 Validar Datos Previos\"].json.listo_para_ia}}",
+              "operation": "equals",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "06 Filtro - Datos válidos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1500, 100]
+    },
+    {
+      "parameters": {
+        "model": "{{$env.MODEL_GPT}}",
+        "temperature": 0.5,
+        "maxTokens": "{{$env.MAX_TOKENS_OPENAI}}",
+        "messages": {
+          "messageValues": [
+            {
+              "content": "Eres un analista comercial B2B senior. Evalúa leads con base en criterios reales. Responde SOLO JSON válido. Si falta información, inclúyela en datos_faltantes. Nunca inventes precios ni fechas. Score 0-100 refleja viabilidad comercial real.",
+              "role": "system"
+            },
+            {
+              "content": "LEAD A EVALUAR:\nNombre: {{$node[\"02 Parse Email\"].json.from_name}}\nEmail: {{$node[\"02 Parse Email\"].json.from_email}}\nAsunto: {{$node[\"02 Parse Email\"].json.subject}}\nMensaje: {{$node[\"02 Parse Email\"].json.body}}\n\nEvalúa usando JSON:\n{\n  \"categoria\": \"string\",\n  \"score_0_100\": number,\n  \"prioridad\": \"Alta|Media|Baja\",\n  \"datos_faltantes\": [],\n  \"requiere_validacion\": boolean,\n  \"resumen_ejecutivo\": \"string\",\n  \"respuesta_sugerida\": \"string\",\n  \"siguiente_accion\": \"string\"\n}",
+              "role": "user"
+            }
+          ]
+        }
+      },
+      "name": "07 OpenAI - Análisis IA",
+      "type": "n8n-nodes-base.openai",
+      "typeVersion": 1,
+      "position": [1700, 100],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parsear respuesta JSON de OpenAI\ntry {\n  const content = items[0].json.message.content;\n  const json = JSON.parse(content);\n  \n  return {\n    json: {\n      ...items[0].json,\n      ia_result: json,\n      parse_success: true\n    }\n  };\n} catch (e) {\n  return {\n    json: {\n      ...items[0].json,\n      parse_error: e.message,\n      parse_success: false\n    }\n  };\n}"
+      },
+      "name": "08 Parse Respuesta IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1900, 100]
+    },
+    {
+      "parameters": {
+        "baseId": "{{$env.AIRTABLE_BASE_ID}}",
+        "table": "Leads",
+        "operation": "update",
+        "searchOptions": {
+          "filterByFormula": "Email = '{{{$node[\"02 Parse Email\"].json.from_email}}}'"
+        },
+        "fields": {
+          "Estado": "Procesado IA",
+          "Score IA": "={{$node[\"08 Parse Respuesta IA\"].json.ia_result.score_0_100}}",
+          "Prioridad": "={{$node[\"08 Parse Respuesta IA\"].json.ia_result.prioridad}}",
+          "Datos Faltantes": "={{JSON.stringify($node[\"08 Parse Respuesta IA\"].json.ia_result.datos_faltantes)}}",
+          "Resumen IA": "={{$node[\"08 Parse Respuesta IA\"].json.ia_result.resumen_ejecutivo}}",
+          "Respuesta Sugerida": "={{$node[\"08 Parse Respuesta IA\"].json.ia_result.respuesta_sugerida}}"
+        }
+      },
+      "name": "09a Actualizar Lead - Post IA",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [2100, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$node[\"08 Parse Respuesta IA\"].json.ia_result.score_0_100}}",
+              "operation": "greaterOrEqual",
+              "value2": 40
+            }
+          ]
+        }
+      },
+      "name": "10 Filtro - Score >= 40? (HITL)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2300, 50]
+    },
+    {
+      "parameters": {
+        "channel": "{{$env.SLACK_CHANNEL_LEADS}}",
+        "text": "Lead para Aprobación - Score: {{$node[\"08 Parse Respuesta IA\"].json.ia_result.score_0_100}}/100",
+        "attachments": [
+          {
+            "color": "{{$node[\"08 Parse Respuesta IA\"].json.ia_result.score_0_100 >= 80 ? '28a745' : $node[\"08 Parse Respuesta IA\"].json.ia_result.score_0_100 >= 60 ? 'ffc107' : 'dc3545'}}",
+            "title": "{{$node[\"02 Parse Email\"].json.from_name}} - {{$node[\"02 Parse Email\"].json.from_email}}",
+            "text": "{{$node[\"08 Parse Respuesta IA\"].json.ia_result.resumen_ejecutivo}}",
+            "fields": [
+              {
+                "title": "Categoría",\n                \"value\": \"{{$node[\"08 Parse Respuesta IA\"].json.ia_result.categoria}}\",\n                \"short\": true\n              },\n              {\n                \"title\": \"Prioridad\",\n                \"value\": \"{{$node[\"08 Parse Respuesta IA\"].json.ia_result.prioridad}}\",\n                \"short\": true\n              }\n            ],\n            \"actions\": [\n              {\n                \"type\": \"button\",\n                \"text\": \"✅ Aprobar\",\n                \"value\": \"approve\",\n                \"style\": \"primary\"\n              },\n              {\n                \"type\": \"button\",\n                \"text\": \"❌ Rechazar\",\n                \"value\": \"reject\",\n                \"style\": \"danger\"\n              }\n            ]\n          }\n        ],\n        \"threadTs\": \"={{$node[\"02 Parse Email\"].json.thread_id}}\"\n      },\n      "name": "11a Slack - HITL Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [2500, 50]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.N8N_WEBHOOK_URL}}/approval-callback",\n        "responseMode": "responseNode\",\n        "options\": {}\n      },\n      "name": "11b Esperar Webhook - Aprobación HITL\",\n      "type\": \"n8n-nodes-base.webhook\",\n      "typeVersion\": 1,\n      "position\": [2700, 50]\n    },\n    {\n      "parameters\": {\n        \"conditions\": {\n          \"string\": [\n            {\n              \"value1\": \"={{$node[\\\"11b Esperar Webhook - Aprobación HITL\\\"].json.decision}}\",\n              \"operation\": \"equals\",\n              \"value2\": \"approved\"\n            }\n          ]\n        }\n      },\n      "name\": \"12 Filtro - Aprobado?\",\n      "type\": \"n8n-nodes-base.if\",\n      "typeVersion\": 1,\n      "position\": [2900, 50]\n    },\n    {\n      "parameters\": {\n        \"to\": \"={{$node[\\\"02 Parse Email\\\"].json.from_email}}\",\n        \"subject\": \"Re: {{$node[\\\"02 Parse Email\\\"].json.subject}}\",\n        \"textOnly\": false,\n        \"htmlBody\": \"<html><body>{{$node[\\\"08 Parse Respuesta IA\\\"].json.ia_result.respuesta_sugerida}}</body></html>\",\n        \"inReplyTo\": \"={{$node[\\\"02 Parse Email\\\"].json.message_id}}\",\n        \"threadId\": \"={{$node[\\\"02 Parse Email\\\"].json.thread_id}}\"\n      },\n      "name\": \"13 Gmail - Enviar Respuesta Final\",\n      "type\": \"n8n-nodes-base.gmail\",\n      "typeVersion\": 1,\n      "position\": [3100, 50]\n    },\n    {\n      "parameters\": {\n        \"baseId\": \"{{$env.AIRTABLE_BASE_ID}}\",\n        \"table\": \"Leads\",\n        \"operation\": \"update\",\n        \"searchOptions\": {\n          \"filterByFormula\": \"Email = '{{{$node[\\\"02 Parse Email\\\"].json.from_email}}}'\"\n        },\n        \"fields\": {\n          \"Estado\": \"Contactado\",\n          \"Decision Humana\": \"Aprobado\",\n          \"Approver User\": \"={{$node[\\\"11b Esperar Webhook - Aprobación HITL\\\"].json.approver}}\",\n          \"Email Enviado TS\": \"={{new Date().toISOString()}}\"\n        }\n      },\n      "name\": \"14 Actualizar Lead - Contactado\",\n      "type\": \"n8n-nodes-base.airtable\",\n      "typeVersion\": 1,\n      "position\": [3300, 50]\n    },\n    {\n      \"parameters\": {\n        \"baseId\": \"{{$env.AIRTABLE_BASE_ID}}\",\n        \"table\": \"Errores\",\n        \"fields\": {\n          \"Origen\": \"OpenAI API Call\",\n          \"Tipo Error\": \"API Error\",\n          \"Detalle\": \"={{$node[\\\"07 OpenAI - Análisis IA\\\"].error?.message || 'Error desconocido'}}\",\n          \"Lead Email\": \"={{$node[\\\"02 Parse Email\\\"].json.from_email}}\",\n          \"Lead ID\": \"={{$node[\\\"03a Buscar Duplicado en Airtable\\\"].json.records[0]?.id || 'N/A'}}\",\n          \"Estado Error\": \"Pendiente correccion\",\n          \"Fecha Error\": \"={{new Date().toISOString()}}\",\n          \"Intentos Reintentos\": 0\n        }\n      },\n      \"name\": \"04a Error Handling - API IA Falla\",\n      \"type\": \"n8n-nodes-base.airtable\",\n      \"typeVersion\": 1,\n      \"position\": [2100, 300]\n    },\n    {\n      \"parameters\": {\n        \"channel\": \"#tech-alerts\",\n        \"text\": \"🚨 Error IA en Lead Processing\",\n        \"attachments\": [\n          {\n            \"color\": \"danger\",\n            \"text\": \"{{$node[\\\"04a Error Handling - API IA Falla\\\"].json.fields.Detalle}}\"\n          }\n        ]\n      },\n      \"name\": \"04b Slack Alert - Error\",\n      \"type\": \"n8n-nodes-base.slack\",\n      \"typeVersion\": 1,\n      \"position\": [2300, 300]\n    },\n    {\n      \"parameters\": {\n        \"baseId\": \"{{$env.AIRTABLE_BASE_ID}}\",\n        \"table\": \"Leads\",\n        \"operation\": \"update\",\n        \"searchOptions\": {\n          \"filterByFormula\": \"Email = '{{{$node[\\\"02 Parse Email\\\"].json.from_email}}}'\"\n        },\n        \"fields\": {\n          \"Estado\": \"Error\"\n        }\n      },\n      \"name\": \"04c Update Lead - Error State\",\n      \"type\": \"n8n-nodes-base.airtable\",\n      \"typeVersion\": 1,\n      \"position\": [2500, 300]\n    },\n    {\n      \"parameters\": {\n        \"baseId\": \"{{$env.AIRTABLE_BASE_ID}}\",\n        \"table\": \"Leads\",\n        \"operation\": \"update\",\n        \"searchOptions\": {\n          \"filterByFormula\": \"Email = '{{{$node[\\\"02 Parse Email\\\"].json.from_email}}}'\"\n        },\n        \"fields\": {\n          \"Estado\": \"Pendiente Enriquecimiento\",\n          \"Decision Humana\": \"Rechazado\"\n        }\n      },\n      \"name\": \"12a Actualizar Lead - No Contactar (Score Bajo)\",\n      \"type\": \"n8n-nodes-base.airtable\",\n      \"typeVersion\": 1,\n      \"position\": [2500, 150]\n    },\n    {\n      \"parameters\": {\n        \"to\": \"={{$node[\\\"02 Parse Email\\\"].json.from_email}}\",\n        \"subject\": \"Re: {{$node[\\\"02 Parse Email\\\"].json.subject}}\",\n        \"htmlBody\": \"<html><body>Gracias por tu interés. Para mejor orientarte, necesitamos más información. Por favor, responde con datos de tu empresa...</body></html>\",\n        \"threadId\": \"={{$node[\\\"02 Parse Email\\\"].json.thread_id}}\"\n      },\n      \"name\": \"12b Gmail - Email Automático (Datos Faltantes)\",\n      \"type\": \"n8n-nodes-base.gmail\",\n      \"typeVersion\": 1,\n      \"position\": [2700, 150]\n    }\n  ],\n  \"connections\": {\n    \"01a Gmail Trigger - Captura de Leads\": {\n      \"main\": [[{\"node\": \"02 Parse Email\", \"branch\": 0}]]\n    },\n    \"01b Webhook Trigger - Alternativo\": {\n      \"main\": [[{\"node\": \"02 Parse Email\", \"branch\": 0}]]\n    },\n    \"02 Parse Email\": {\n      \"main\": [[{\"node\": \"03a Buscar Duplicado en Airtable\", \"branch\": 0}]]\n    },\n    \"03a Buscar Duplicado en Airtable\": {\n      \"main\": [[{\"node\": \"03b Filtro - Es nuevo?\", \"branch\": 0}]]\n    },\n    \"03b Filtro - Es nuevo?\": {\n      \"main\": [\n        [{\"node\": \"04 Crear Lead en Airtable\", \"branch\": 0}],\n        [{\"node\": \"12a Actualizar Lead - No Contactar (Score Bajo)\", \"branch\": 0}]\n      ]\n    },\n    \"04 Crear Lead en Airtable\": {\n      \"main\": [[{\"node\": \"05 Validar Datos Previos\", \"branch\": 0}]]\n    },\n    \"05 Validar Datos Previos\": {\n      \"main\": [[{\"node\": \"06 Filtro - Datos válidos?\", \"branch\": 0}]]\n    },\n    \"06 Filtro - Datos válidos?\": {\n      \"main\": [\n        [{\"node\": \"07 OpenAI - Análisis IA\", \"branch\": 0}],\n        [{\"node\": \"04a Error Handling - API IA Falla\", \"branch\": 0}]\n      ]\n    },\n    \"07 OpenAI - Análisis IA\": {\n      \"main\": [[{\"node\": \"08 Parse Respuesta IA\", \"branch\": 0}]],\n      \"onError\": [[{\"node\": \"04a Error Handling - API IA Falla\", \"branch\": 0}]]\n    },\n    \"08 Parse Respuesta IA\": {\n      \"main\": [[{\"node\": \"09a Actualizar Lead - Post IA\", \"branch\": 0}]]\n    },\n    \"09a Actualizar Lead - Post IA\": {\n      \"main\": [[{\"node\": \"10 Filtro - Score >= 40? (HITL)\", \"branch\": 0}]]\n    },\n    \"10 Filtro - Score >= 40? (HITL)\": {\n      \"main\": [\n        [{\"node\": \"11a Slack - HITL Notification\", \"branch\": 0}],\n        [{\"node\": \"12a Actualizar Lead - No Contactar (Score Bajo)\", \"branch\": 0}]\n      ]\n    },\n    \"11a Slack - HITL Notification\": {\n      \"main\": [[{\"node\": \"11b Esperar Webhook - Aprobación HITL\", \"branch\": 0}]]\n    },\n    \"11b Esperar Webhook - Aprobación HITL\": {\n      \"main\": [[{\"node\": \"12 Filtro - Aprobado?\", \"branch\": 0}]]\n    },\n    \"12 Filtro - Aprobado?\": {\n      \"main\": [\n        [{\"node\": \"13 Gmail - Enviar Respuesta Final\", \"branch\": 0}],\n        [{\"node\": \"12a Actualizar Lead - No Contactar (Score Bajo)\", \"branch\": 0}]\n      ]\n    },\n    \"13 Gmail - Enviar Respuesta Final\": {\n      \"main\": [[{\"node\": \"14 Actualizar Lead - Contactado\", \"branch\": 0}]]\n    },\n    \"04a Error Handling - API IA Falla\": {\n      \"main\": [[{\"node\": \"04b Slack Alert - Error\", \"branch\": 0}]]\n    },\n    \"04b Slack Alert - Error\": {\n      \"main\": [[{\"node\": \"04c Update Lead - Error State\", \"branch\": 0}]]\n    }\n  },\n  \"active\": false,\n  \"settings\": {\n    \"executionOrder\": \"v1\",\n    \"saveManualExecutions\": true,\n    \"timezone\": \"America/Argentina/Buenos_Aires\"\n  },\n  \"versionId\": \"1\",\n  \"meta\": {\n    \"instanceId\": \"1a3c5e7f\"\n  }\n}\n

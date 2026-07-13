@@ -1,0 +1,82 @@
+# Credenciales y variables de entorno
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+credentials/
+
+# API Keys y Tokens (NUNCA commitar)
+*_api_key*
+*_token*
+*_secret*
+openai_key*
+airtable_token*
+slack_token*
+gmail_credentials*
+
+# n8n specifics
+.n8n/
+node_modules/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+.vs_code/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Datos sensibles
+data_real/
+test_data_real/
+screenshots_sensibles/
+evidencias/demo_*_REAL/
+
+# Archivos temporales
+temp/
+tmp/
+.tmp/
+cache/
+
+# Database backups
+*.sql
+*.sqlite
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+ENV/
+
+# Videos y archivos pesados (solo para local)
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Configuración local específica
+local_config.json
+personal_notes.md
+my_links.md

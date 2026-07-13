@@ -1,1 +1,49 @@
-
+Tabla,Campo,Tipo,Descripción,Obligatorio,Ejemplo
+Leads,Lead ID,Autonumber,Identificador único del lead,Sí,1
+Leads,Nombre,Texto,Nombre extraído desde el email,Sí,Juan Pérez
+Leads,Email,Email,Email del lead - clave para deduplicación,Sí,juan@empresa.com
+Leads,Empresa,Texto,Empresa u organización del lead,No,TechCorp Solutions
+Leads,Industria,Single select,Industria detectada,No,"Tech, Finance, HR, Otros"
+Leads,Asunto,Texto,Subject del email original,Sí,Solicitud de automatización
+Leads,Mensaje Original,Long text,Body completo del email recibido,Sí,"Queremos automatizar nuestro pipeline..."
+Leads,Estado,Single select,"Pendiente IA, Procesado IA, Aprobado Humano, Contactado, Error",Sí,Pendiente IA
+Leads,Score IA,Número,Puntuación 0-100 asignada por OpenAI,No,88
+Leads,Prioridad,Single select,"Alta, Media, Baja - derivada del score",No,Alta
+Leads,Datos Faltantes,Long text,JSON array de campos incompletos detectados,No,"['empresa', 'presupuesto']"
+Leads,Resumen IA,Long text,Resumen ejecutivo del análisis IA,No,"Lead VIP de sector tech que busca..."
+Leads,Respuesta Sugerida,Long text,Borrador de email generado por IA,No,"Hola Juan, excelente tu consulta..."
+Leads,Decision Humana,Single select,"Pendiente, Aprobado, Rechazado - decision del aprobador",No,Aprobado
+Leads,Approver User,Texto,Usuario de Slack que aprobó,No,john.doe@empresa.com
+Leads,Thread ID,Texto,ID del hilo en Slack para agrupar conversación,No,1234567890.12345
+Leads,Message TS,Texto,Timestamp del último mensaje en el hilo Slack,No,1234567890.12345
+Leads,Email Enviado TS,Datetime,Timestamp cuando se envió el email al cliente,No,2026-07-13 14:30:00
+Leads,Fecha Ingreso,Datetime,Timestamp de creación del registro,Sí,2026-07-13 14:00:00
+Leads,Fecha Actualización,Datetime,Última modificación,Sí,2026-07-13 14:25:00
+Leads,Relacion Cliente,Link to Clientes,Referencia a tabla Clientes para evitar datos aislados,No,ClienteID-001
+Leads,Relacion Errores,Link to Errores,Referencia a errores asociados,No,ErrorID-042
+Clientes,Cliente ID,Autonumber,Identificador único del cliente,Sí,1
+Clientes,Empresa,Texto,Nombre legal de la empresa,Sí,TechCorp Solutions Inc
+Clientes,Contacto Principal,Email,Email del decisor principal,Sí,contacto@empresa.com
+Clientes,Teléfono,Teléfono,Número de contacto,No,+54 11 1234-5678
+Clientes,Industria,Single select,"Tech, Finance, HR, Manufacturing, Retail, Otros",Sí,Tech
+Clientes,Tamaño,Single select,"1-10, 11-50, 51-200, 200+",No,11-50
+Clientes,Estado Cliente,Single select,"Prospecto, Lead Calificado, Negociación, Activo, Inactivo",Sí,Prospecto
+Clientes,Última Interacción,Datetime,Fecha del último contacto,No,2026-07-13 14:00:00
+Clientes,Próximo Follow-up,Datetime,Fecha programada para próximo contacto,No,2026-07-20 10:00:00
+Clientes,Notas,Long text,Observaciones internas sobre el cliente,No,"Cliente interesado en Q3..."
+Clientes,Leads,Linked records,Relación inversa - todos los leads de este cliente,No,Lead-001; Lead-002
+Clientes,Fecha Creación,Datetime,Timestamp de creación,Sí,2026-07-13 14:00:00
+Errores,Error ID,Autonumber,Identificador único del error,Sí,1
+Errores,Origen,Texto,Nodo o etapa n8n donde ocurrió el error,Sí,OpenAI API Call
+Errores,Tipo Error,Single select,"API Error, Datos Faltantes, Timeout, Validación, Otro",Sí,API Error
+Errores,Detalle,Long text,Stack trace completo o descripción técnica del error,Sí,"Error 401: Invalid API key for OpenAI"
+Errores,Lead Email,Email,Email del lead afectado,Sí,juan@empresa.com
+Errores,Lead ID,Número,Referencia al Lead ID afectado,Sí,1
+Errores,Estado Error,Single select,"Pendiente correccion, Reintentado, Cerrado manual, Resuelto",Sí,Pendiente correccion
+Errores,Fecha Error,Datetime,Timestamp exacto del error,Sí,2026-07-13 14:15:32
+Errores,Intentos Reintentos,Número,Cantidad de reintentos realizados,Sí,2
+Errores,Próximo Reintento,Datetime,Cuándo se intentará nuevamente,No,2026-07-13 14:20:00
+Errores,Resuelto Por,Single select,"Sistema, Manual, N/A",Sí,Manual
+Errores,Nota Resolución,Long text,Comentario sobre cómo se resolvió,No,"API key reemplazada, error resuelto"
+Errores,Fecha Resolución,Datetime,Cuándo se cerró el error,No,2026-07-13 15:00:00
+Errores,Link Lead,Link to Leads,Referencia a registro Leads,No,Lead-001

@@ -1,0 +1,465 @@
+{
+  "version": "1.0",
+  "createdAt": "2026-07-13",
+  "baseId": "appXXXXXXXXXXXXXX",
+  "tables": [
+    {
+      "id": "tblLeads",
+      "name": "Leads",
+      "description": "Tabla principal de leads con todos los datos y estados",
+      "fields": [
+        {
+          "id": "fldLeadID",
+          "name": "Lead ID",
+          "type": "autonumber",
+          "required": true,
+          "description": "Identificador único"
+        },
+        {
+          "id": "fldNombre",
+          "name": "Nombre",
+          "type": "singleLineText",
+          "required": true,
+          "description": "Nombre extraído desde email"
+        },
+        {
+          "id": "fldEmail",
+          "name": "Email",
+          "type": "email",
+          "required": true,
+          "description": "Email único para deduplicación"
+        },
+        {
+          "id": "fldEmpresa",
+          "name": "Empresa",
+          "type": "singleLineText",
+          "required": false,
+          "description": "Empresa del lead"
+        },
+        {
+          "id": "fldIndustria",
+          "name": "Industria",
+          "type": "singleSelect",
+          "required": false,
+          "options": ["Tech", "Finance", "HR", "Manufacturing", "Retail", "Otros"],
+          "description": "Sector identificado"
+        },
+        {
+          "id": "fldAsunto",
+          "name": "Asunto",
+          "type": "singleLineText",
+          "required": true,
+          "description": "Subject del email"
+        },
+        {
+          "id": "fldMensajeOriginal",
+          "name": "Mensaje Original",
+          "type": "multilineText",
+          "required": true,
+          "description": "Body completo"
+        },
+        {
+          "id": "fldEstado",
+          "name": "Estado",
+          "type": "singleSelect",
+          "required": true,
+          "options": [
+            "Pendiente IA",
+            "Procesado IA",
+            "Aprobado Humano",
+            "Contactado",
+            "Error"
+          ],
+          "description": "Estado actual del lead"
+        },
+        {
+          "id": "fldScoreIA",
+          "name": "Score IA",
+          "type": "number",
+          "required": false,
+          "precision": 0,
+          "min": 0,
+          "max": 100,
+          "description": "Puntuación 0-100"
+        },
+        {
+          "id": "fldPrioridad",
+          "name": "Prioridad",
+          "type": "singleSelect",
+          "required": false,
+          "options": ["Alta", "Media", "Baja"],
+          "description": "Derivada del score"
+        },
+        {
+          "id": "fldDatosFaltantes",
+          "name": "Datos Faltantes",
+          "type": "multilineText",
+          "required": false,
+          "description": "JSON array de campos incompletos"
+        },
+        {
+          "id": "fldResumenIA",
+          "name": "Resumen IA",
+          "type": "multilineText",
+          "required": false,
+          "description": "Resumen ejecutivo"
+        },
+        {
+          "id": "fldRespuestaSugerida",
+          "name": "Respuesta Sugerida",
+          "type": "multilineText",
+          "required": false,
+          "description": "Borrador generado por IA"
+        },
+        {
+          "id": "fldDecisionHumana",
+          "name": "Decision Humana",
+          "type": "singleSelect",
+          "required": false,
+          "options": ["Pendiente", "Aprobado", "Rechazado"],
+          "description": "Decisión del approver"
+        },
+        {
+          "id": "fldApproverUser",
+          "name": "Approver User",
+          "type": "singleLineText",
+          "required": false,
+          "description": "Usuario de Slack que aprobó"
+        },
+        {
+          "id": "fldThreadID",
+          "name": "Thread ID",
+          "type": "singleLineText",
+          "required": false,
+          "description": "ID del hilo Slack"
+        },
+        {
+          "id": "fldMessageTS",
+          "name": "Message TS",
+          "type": "singleLineText",
+          "required": false,
+          "description": "Timestamp del mensaje Slack"
+        },
+        {
+          "id": "fldEmailEnviadoTS",
+          "name": "Email Enviado TS",
+          "type": "dateTime",
+          "required": false,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Timestamp del email enviado"
+        },
+        {
+          "id": "fldFechaIngreso",
+          "name": "Fecha Ingreso",
+          "type": "dateTime",
+          "required": true,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Timestamp de creación"
+        },
+        {
+          "id": "fldFechaActualizacion",
+          "name": "Fecha Actualización",
+          "type": "dateTime",
+          "required": true,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Última modificación"
+        },
+        {
+          "id": "fldRelacionCliente",
+          "name": "Relacion Cliente",
+          "type": "multipleRecordLinks",
+          "linkedTableId": "tblClientes",
+          "required": false,
+          "description": "Link a tabla Clientes"
+        },
+        {
+          "id": "fldRelacionErrores",
+          "name": "Relacion Errores",
+          "type": "multipleRecordLinks",
+          "linkedTableId": "tblErrores",
+          "required": false,
+          "description": "Link a tabla Errores"
+        }
+      ],
+      "primaryField": "fldLeadID"
+    },
+    {
+      "id": "tblClientes",
+      "name": "Clientes",
+      "description": "Tabla de empresas/clientes con información de contacto",
+      "fields": [
+        {
+          "id": "fldClienteID",
+          "name": "Cliente ID",
+          "type": "autonumber",
+          "required": true,
+          "description": "Identificador único"
+        },
+        {
+          "id": "fldEmpresa",
+          "name": "Empresa",
+          "type": "singleLineText",
+          "required": true,
+          "description": "Nombre legal"
+        },
+        {
+          "id": "fldContactoPrincipal",
+          "name": "Contacto Principal",
+          "type": "email",
+          "required": true,
+          "description": "Email del decisor"
+        },
+        {
+          "id": "fldTelefono",
+          "name": "Teléfono",
+          "type": "phoneNumber",
+          "required": false,
+          "description": "Número de contacto"
+        },
+        {
+          "id": "fldIndustria",
+          "name": "Industria",
+          "type": "singleSelect",
+          "required": true,
+          "options": ["Tech", "Finance", "HR", "Manufacturing", "Retail", "Otros"],
+          "description": "Sector"
+        },
+        {
+          "id": "fldTamaño",
+          "name": "Tamaño",
+          "type": "singleSelect",
+          "required": false,
+          "options": ["1-10", "11-50", "51-200", "200+"],
+          "description": "Cantidad de empleados"
+        },
+        {
+          "id": "fldEstadoCliente",
+          "name": "Estado Cliente",
+          "type": "singleSelect",
+          "required": true,
+          "options": [
+            "Prospecto",
+            "Lead Calificado",
+            "Negociación",
+            "Activo",
+            "Inactivo"
+          ],
+          "description": "Estado actual"
+        },
+        {
+          "id": "fldUltimaInteraccion",
+          "name": "Última Interacción",
+          "type": "dateTime",
+          "required": false,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Último contacto"
+        },
+        {
+          "id": "fldProximoFollowup",
+          "name": "Próximo Follow-up",
+          "type": "dateTime",
+          "required": false,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Follow-up programado"
+        },
+        {
+          "id": "fldNotas",
+          "name": "Notas",
+          "type": "multilineText",
+          "required": false,
+          "description": "Observaciones internas"
+        },
+        {
+          "id": "fldLeads",
+          "name": "Leads",
+          "type": "multipleRecordLinks",
+          "linkedTableId": "tblLeads",
+          "required": false,
+          "description": "Relación inversa a Leads"
+        },
+        {
+          "id": "fldFechaCreacion",
+          "name": "Fecha Creación",
+          "type": "dateTime",
+          "required": true,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Timestamp creación"
+        }
+      ],
+      "primaryField": "fldClienteID"
+    },
+    {
+      "id": "tblErrores",
+      "name": "Errores",
+      "description": "Registro de errores y fallos en el flujo",
+      "fields": [
+        {
+          "id": "fldErrorID",
+          "name": "Error ID",
+          "type": "autonumber",
+          "required": true,
+          "description": "Identificador único"
+        },
+        {
+          "id": "fldOrigen",
+          "name": "Origen",
+          "type": "singleLineText",
+          "required": true,
+          "description": "Nodo o etapa n8n"
+        },
+        {
+          "id": "fldTipoError",
+          "name": "Tipo Error",
+          "type": "singleSelect",
+          "required": true,
+          "options": [
+            "API Error",
+            "Datos Faltantes",
+            "Timeout",
+            "Validación",
+            "Otro"
+          ],
+          "description": "Categoría de error"
+        },
+        {
+          "id": "fldDetalle",
+          "name": "Detalle",
+          "type": "multilineText",
+          "required": true,
+          "description": "Stack trace o detalle técnico"
+        },
+        {
+          "id": "fldLeadEmail",
+          "name": "Lead Email",
+          "type": "email",
+          "required": true,
+          "description": "Email del lead afectado"
+        },
+        {
+          "id": "fldLeadID",
+          "name": "Lead ID",
+          "type": "number",
+          "required": true,
+          "description": "Referencia al Lead"
+        },
+        {
+          "id": "fldEstadoError",
+          "name": "Estado Error",
+          "type": "singleSelect",
+          "required": true,
+          "options": [
+            "Pendiente correccion",
+            "Reintentado",
+            "Cerrado manual",
+            "Resuelto"
+          ],
+          "description": "Estado actual del error"
+        },
+        {
+          "id": "fldFechaError",
+          "name": "Fecha Error",
+          "type": "dateTime",
+          "required": true,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Timestamp exacto"
+        },
+        {
+          "id": "fldIntentosReintentos",
+          "name": "Intentos Reintentos",
+          "type": "number",
+          "required": true,
+          "precision": 0,
+          "description": "Cantidad de reintentos"
+        },
+        {
+          "id": "fldProximoReintento",
+          "name": "Próximo Reintento",
+          "type": "dateTime",
+          "required": false,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Próximo intento programado"
+        },
+        {
+          "id": "fldResueltoPor",
+          "name": "Resuelto Por",
+          "type": "singleSelect",
+          "required": true,
+          "options": ["Sistema", "Manual", "N/A"],
+          "description": "Quién lo resolvió"
+        },
+        {
+          "id": "fldNotaResolucion",
+          "name": "Nota Resolución",
+          "type": "multilineText",
+          "required": false,
+          "description": "Cómo se resolvió"
+        },
+        {
+          "id": "fldFechaResolucion",
+          "name": "Fecha Resolución",
+          "type": "dateTime",
+          "required": false,
+          "timeZone": "America/Argentina/Buenos_Aires",
+          "description": "Cuándo se cerró"
+        },
+        {
+          "id": "fldLinkLead",
+          "name": "Link Lead",
+          "type": "multipleRecordLinks",
+          "linkedTableId": "tblLeads",
+          "required": false,
+          "description": "Link a registro Leads"
+        }
+      ],
+      "primaryField": "fldErrorID"
+    }
+  ],
+  "relationships": [
+    {
+      "name": "Leads to Clientes",
+      "fromTable": "tblLeads",
+      "toTable": "tblClientes",
+      "fromField": "fldRelacionCliente",
+      "type": "many-to-one",
+      "description": "Cada lead pertenece a un cliente (empresa)"
+    },
+    {
+      "name": "Leads to Errores",
+      "fromTable": "tblLeads",
+      "toTable": "tblErrores",
+      "fromField": "fldRelacionErrores",
+      "type": "one-to-many",
+      "description": "Un lead puede tener múltiples errores"
+    }
+  ],
+  "views": [
+    {
+      "name": "Leads Pendientes IA",
+      "type": "grid",
+      "baseTable": "tblLeads",
+      "filter": "Estado = 'Pendiente IA'",
+      "sort": "Fecha Ingreso (desc)"
+    },
+    {
+      "name": "Leads para HITL",
+      "type": "grid",
+      "baseTable": "tblLeads",
+      "filter": "Estado = 'Procesado IA' AND Decision Humana = 'Pendiente'",
+      "sort": "Score IA (desc)"
+    },
+    {
+      "name": "Errores No Resueltos",
+      "type": "grid",
+      "baseTable": "tblErrores",
+      "filter": "Estado Error = 'Pendiente correccion' OR Estado Error = 'Reintentado'",
+      "sort": "Fecha Error (desc)"
+    },
+    {
+      "name": "Clientes Activos",
+      "type": "grid",
+      "baseTable": "tblClientes",
+      "filter": "Estado Cliente = 'Activo'",
+      "sort": "Última Interacción (desc)"
+    }
+  ]
+}
